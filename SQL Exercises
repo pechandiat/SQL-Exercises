@@ -1,0 +1,326 @@
+/*Given a table of candidates and their skills, you're tasked with finding the candidates best suited for an open Data Science job. 
+You want to find candidates who are proficient in Python, Tableau, and PostgreSQL.
+Write a query to list the candidates who possess all of the required skills for the job. 
+Sort the output by candidate ID in ascending order.*/
+
+SELECT candidate_id FROM candidates
+WHERE skill IN ('Python', 'Tableau', 'PostgreSQL')
+GROUP BY candidate_id
+HAVING COUNT(skill) = '3'
+ORDER BY candidate_id ASC;
+
+/*Assume you're given two tables containing data about Facebook Pages and their respective likes (as in "Like a Facebook Page").
+Write a query to return the IDs of the Facebook pages that have zero likes. 
+The output should be sorted in ascending order based on the page IDs.*/
+
+SELECT pages.page_id FROM pages
+LEFT JOIN page_likes 
+ON pages.page_id = page_likes.page_id
+WHERE page_likes.page_id IS NULL;
+
+/* Tesla is investigating production bottlenecks and they need your help to extract the relevant data. Write a query to determine which parts have begun the assembly process but are not yet finished.
+
+Assumptions:
+
+parts_assembly table contains all parts currently in production, each at varying stages of the assembly process.
+An unfinished part is one that lacks a finish_date.
+This question is straightforward, so let's approach it with simplicity in both thinking and solution.*/
+
+SELECT part, assembly_step FROM parts_assembly
+WHERE finish_date IS NULL 
+
+/* This is the same question as problem #3 in the SQL Chapter of Ace the Data Science Interview!
+
+Assume you're given the table on user viewership categorised by device type where the three types are laptop, tablet, and phone.
+
+Write a query that calculates the total viewership for laptops and mobile devices where mobile 
+is defined as the sum of tablet and phone viewership. Output the total viewership for laptops as laptop_reviews 
+and the total viewership for mobile devices as mobile_views*/
+
+SELECT SUM(CASE WHEN device_type = 'laptop' THEN 1 ELSE 0 END) AS laptop_views,
+       SUM(CASE WHEN device_type IN ('tablet', 'phone') THEN 1 ELSE 0 END) AS mobile_views
+FROM viewership
+
+/*or*/
+
+SELECT 
+  COUNT(*) FILTER ( WHERE device_type = 'laptop') AS laptop_reviews,
+  COUNT(*) FILTER ( WHERE device_type IN ('tablet','phone')) AS mobile_reviews
+FROM viewership
+
+
+/*Given a table of Facebook posts, for each user who posted at least twice in 2021, write a query to find 
+the number of days between each user’s first post of the year and last post of the year in the year 2021. 
+Output the user and number of the days between each user's first and last post.*/
+
+SELECT user_id, MAX(post_date::DATE) - MIN(post_date::DATE) AS days_between
+FROM posts
+WHERE DATE_PART('year', post_date::DATE) = 2021
+GROUP BY user_id
+HAVING COUNT(post_id) > 1
+
+/*Write a query to identify the top 2 Power Users who sent the highest number of messages on Microsoft Teams in August 2022. 
+Display the IDs of these 2 users along with the total number of messages they sent. 
+Output the results in descending order based on the count of the messages.
+Assumption:
+No two users have sent the same number of messages in August 2022.*/
+
+SELECT sender_id, COUNT(content) AS message_count 
+FROM messages
+WHERE DATE_PART('year',sent_date::DATE)=2022 AND DATE_PART('month',sent_date::DATE)=8
+GROUP BY sender_id
+ORDER BY message_count DESC
+LIMIT 2
+
+
+/*This is the same question as problem #8 in the SQL Chapter of Ace the Data Science Interview!
+
+Assume you're given a table containing job postings from various companies on the LinkedIn platform. 
+Write a query to retrieve the count of companies that have posted duplicate job listings.
+Definition:
+
+Duplicate job listings are defined as two job listings within the same company that share identical titles and descriptions.*/
+
+WITH job_count AS(
+  SELECT company_id, title, description, COUNT(job_id)
+  FROM job_listings
+  GROUP BY company_id, title, description
+  HAVING COUNT(job_id) > 1
+  )
+SELECT COUNT(company_id) FROM job_count
+
+/*This is the same question as problem #2 in the SQL Chapter of Ace the Data Science Interview!
+
+Assume you're given the tables containing completed trade orders and user details in a Robinhood trading system.
+
+Write a query to retrieve the top three cities that have the highest number of completed trade orders listed in descending order. 
+Output the city name and the corresponding number of completed trade orders.*/
+
+WITH user_trades AS (
+  SELECT * FROM users
+  LEFT JOIN trades
+  ON trades.user_id = users.user_id
+  WHERE status = 'Completed'
+  )
+
+SELECT city, COUNT(order_id) FROM user_trades
+GROUP BY city 
+ORDER BY COUNT(ORDER_ID) DESC
+LIMIT 3
+
+/*Given the reviews table, write a query to retrieve the average star rating for each product, grouped by month. 
+The output should display the month as a numerical value, product ID, 
+and average star rating rounded to two decimal places. Sort the output first by month and then by product ID.*/
+
+SELECT DATE_PART('month', submit_date::DATE) AS rev_month, product_id, ROUND(AVG(stars),2) AS rating
+FROM reviews
+GROUP BY rev_month, product_id
+ORDER BY rev_month ASC, product_id ASC
+
+/*Companies often perform salary analyses to ensure fair compensation practices. 
+One useful analysis is to check if there are any employees earning more than their direct managers.
+
+As a HR Analyst, you're asked to identify all employees who earn more than their direct managers. 
+The result should include the employee's ID and name.*/
+
+WITH managers_table AS (
+  SELECT employee_id as manager_id, name AS manager_name, salary as manager_salary FROM employee
+  WHERE manager_id IS NULL
+),
+  employees_table AS (
+  SELECT employee_id, name AS employee_name, salary, manager_id FROM employee
+  WHERE manager_id IS NOT NULL
+),
+  emp_manag AS(
+  SELECT * FROM employees_table
+  LEFT JOIN managers_table
+  ON employees_table.manager_id = managers_table.manager_id
+  )
+
+SELECT employee_id, employee_name FROM emp_manag
+WHERE salary > manager_salary
+
+/* Assume you have an events table on Facebook app analytics. 
+Write a query to calculate the click-through rate (CTR) for the app in 2022 and round the results to 2 decimal places.
+
+Definition and note:
+
+Percentage of click-through rate (CTR) = 100.0 * Number of clicks / Number of impressions
+To avoid integer division, multiply the CTR by 100.0, not 100.*/
+
+SELECT app_id, 
+ROUND((100.0*COUNT(*) FILTER(WHERE event_type = 'click') / (COUNT(*) FILTER( WHERE event_type = 'impression'))),2) 
+AS ctr 
+FROM events
+WHERE DATE_PART('year', timestamp::DATE) = 2022
+GROUP BY app_id
+
+/*Assume you're given tables with information about TikTok user sign-ups and confirmations through email and text. 
+New users on TikTok sign up using their email addresses, and upon sign-up, each user receives a text message 
+confirmation to activate their account.
+
+Write a query to display the user IDs of those who did not confirm their sign-up on the first day, but confirmed on the second day.
+
+Definition:
+
+action_date refers to the date when users activated their accounts and confirmed their sign-up through text messages.*/
+
+SELECT user_id FROM emails
+JOIN texts 
+ON emails.email_id = texts.email_id
+WHERE signup_action = 'Confirmed'
+  AND action_date::DATE = signup_date::DATE + INTERVAL '1 day';
+
+/*IBM is analyzing how their employees are utilizing the Db2 database by tracking the SQL queries executed by their employees. 
+The objective is to generate data to populate a histogram that shows the number of unique queries run by employees during 
+the third quarter of 2023 (July to September). Additionally, it should count the number of employees who did not run any queries 
+ during this period.
+
+Display the number of unique queries as histogram categories, along with the count of employees who executed that number of
+unique queries.*/
+
+WITH employee_queries AS(
+  SELECT 
+    e.employee_id, 
+    COALESCE(COUNT(DISTINCT(q.query_id)),0) AS unique_queries 
+    FROM employees AS e 
+    LEFT JOIN queries AS q 
+    ON e.employee_id = q.employee_id
+    AND query_starttime >= '07/01/2023' 
+    AND query_starttime < '10/01/2023'
+    GROUP BY e.employee_id
+    )
+    
+SELECT 
+unique_queries, COUNT(employee_id) AS employee_count
+FROM employee_queries
+GROUP BY unique_queries
+Order BY unique_queries ASC
+
+
+/*Your team at JPMorgan Chase is preparing to launch a new credit card, and to gain some insights, 
+you're analyzing how many credit cards were issued each month.
+
+Write a query that outputs the name of each credit card and the difference in the number of issued 
+cards between the month with the highest issuance cards and the lowest issuance. Arrange the results 
+based on the largest disparity.*/
+
+/*SOLUTION*/
+SELECT card_name, MAX(issued_amount) - MIN(issued_amount) AS difference
+FROM monthly_cards_issued
+GROUP BY card_name
+ORDER BY difference DESC
+
+/*complicated solution*/
+
+
+WITH max_issuance AS (
+  SELECT card_name, MAX(issued_amount)
+  FROM monthly_cards_issued
+  GROUP BY card_name
+  ),
+  min_issuance AS (
+  SELECT card_name, MIN(issued_amount)
+  FROM monthly_cards_issued
+  GROUP BY card_name
+  )
+  
+SELECT max_issuance.card_name, max_issuance.max - min_issuance.min AS difference
+FROM max_issuance
+JOIN min_issuance
+ON max_issuance.card_name = min_issuance.card_name
+ORDER BY difference DESC
+
+
+/*You're trying to find the mean number of items per order on Alibaba, rounded to 1 decimal place using tables 
+which includes information on the count of items in each order (item_count table) and the corresponding number 
+of orders for each item count (order_occurrences table).*/
+
+SELECT 
+ROUND((SUM(order_occurrences*item_count)/SUM(order_occurrences))::NUMERIC, 1) as mean
+FROM items_per_order;
+
+/* CVS Health is trying to better understand its pharmacy sales, and how well different products are selling. 
+Each drug can only be produced by one manufacturer.
+
+Write a query to find the top 3 most profitable drugs sold, and how much profit they made. 
+Assume that there are no ties in the profits. Display the result from the highest to the lowest total profit.
+
+Definition:
+
+cogs stands for Cost of Goods Sold which is the direct cost associated with producing the drug.
+Total Profit = Total Sales - Cost of Goods Sold*/
+
+SELECT drug, total_sales - cogs AS total_profit FROM pharmacy_sales
+ORDER BY total_profit DESC
+LIMIT 3
+
+/*CVS Health is analyzing its pharmacy sales data, and how well different products are selling in the market. 
+Each drug is exclusively manufactured by a single manufacturer.
+
+Write a query to identify the manufacturers associated with the drugs that resulted in losses for CVS
+ Health and calculate the total amount of losses incurred.
+
+Output the manufacturer's name, the number of drugs associated with losses, and the total losses in absolute value. 
+Display the results sorted in descending order with the highest losses displayed at the top.*/
+
+WITH losses_table AS(
+  SELECT manufacturer, drug, ABS(total_sales - cogs) AS total_loss
+  FROM pharmacy_sales
+  WHERE total_sales - cogs < 0
+)
+
+SELECT manufacturer, COUNT(drug) AS num_drugs, SUM(total_loss) FROM losses_table
+GROUP BY manufacturer
+ORDER BY SUM(total_loss) DESC
+
+/*CVS Health wants to gain a clearer understanding of its pharmacy sales and the performance of various products.
+
+Write a query to calculate the total drug sales for each manufacturer. Round the answer to the nearest million 
+and report your results in descending order of total sales. In case of any duplicates, sort them alphabetically by the manufacturer name.
+
+Since this data will be displayed on a dashboard viewed by business stakeholders, please format your results as follows: "$36 million".*/
+
+SELECT manufacturer, '$' || ROUND(SUM(total_sales)/1000000.0) || ' million' AS total_sales_million FROM pharmacy_sales
+GROUP BY manufacturer
+ORDER BY SUM(total_sales) DESC, manufacturer DESC
+
+/*UnitedHealth Group (UHG) has a program called Advocate4Me, which allows policy holders (or, members) 
+to call an advocate and receive support for their health care needs – whether that's claims and benefits support, 
+drug coverage, pre- and post-authorisation, medical records, emergency assistance, or member portal services.
+
+Write a query to find how many UHG policy holders made three, or more calls, assuming each call is identified by the case_id column.*/
+
+WITH calls AS (
+  SELECT policy_holder_id, COUNT(case_id) FROM callers
+  GROUP BY policy_holder_id
+  HAVING COUNT(case_id) >= 3
+  )
+  
+SELECT COUNT(policy_holder_id) FROM calls
+
+/*Assume you are given the table below on Uber transactions made by users. 
+Write a query to obtain the third transaction of every user. Output the user id, spend and transaction date.*/
+
+SELECT user_id, spend, transaction_date
+FROM (
+  SELECT user_id, spend, transaction_date, ROW_NUMBER() OVER (
+  PARTITION BY user_id ORDER BY transaction_date) AS row_num
+  FROM transactions
+  ) AS transaction_no
+WHERE row_num = 3
+
+
+/*Imagine you're an HR analyst at a tech company tasked with analyzing employee salaries. 
+Your manager is keen on understanding the pay distribution and asks you to determine the second highest salary among all employees.
+
+It's possible that multiple employees may share the same second highest salary. 
+In case of duplicate, display the salary only once.*/
+
+SELECT salary FROM (
+    SELECT salary, ROW_NUMBER() OVER( 
+    ORDER BY salary DESC) AS row_num
+    FROM employee
+  ) AS salary_num
+WHERE row_num = 2
+
